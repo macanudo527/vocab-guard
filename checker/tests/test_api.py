@@ -72,3 +72,21 @@ def test_long_sentence_without_breaks(client):
     r = client.post("/check", json={"text": "学校" * 10_000, "list": "sample-n5"})
     assert r.status_code == 200
     assert r.json()["pass"] is True
+
+
+def test_api_key_is_optional(client):
+    r = client.post("/check", json={"text": "水。", "list": "sample-n5"})
+    assert r.status_code == 200
+
+
+def test_api_key_is_required_when_set(client, monkeypatch):
+    monkeypatch.setattr("app.main.CHECKER_API_KEY", "s3cret")
+    body = {"text": "水。", "list": "sample-n5"}
+    assert client.post("/check", json=body).status_code == 401
+    wrong = client.post("/check", json=body, headers={"X-API-Key": "nope"})
+    assert wrong.status_code == 401
+    assert wrong.json()["error"] == "unauthorized"
+    assert client.post("/check", json=body, headers={"X-API-Key": "s3cret"}).status_code == 200
+    # /health and /lists stay open for health checks and discovery.
+    assert client.get("/health").status_code == 200
+    assert client.get("/lists").status_code == 200

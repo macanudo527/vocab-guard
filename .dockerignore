@@ -1,0 +1,8 @@
+# The checker image only needs these; everything else stays out of the build context.
+*
+!checker/pyproject.toml
+!checker/uv.lock
+!checker/app/
+!lists/jlpt/
+!lists/sample/
+**/__pycache__

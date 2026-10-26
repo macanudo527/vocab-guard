@@ -1,10 +1,11 @@
 """FastAPI app: GET /health, GET /lists, POST /check."""
 
+import hmac
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Header, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -16,6 +17,8 @@ LISTS_DIR = Path(os.environ.get("VOCAB_GUARD_LISTS", Path(__file__).resolve().pa
 MAX_TEXT_CHARS = int(os.environ.get("MAX_TEXT_CHARS", "20000"))
 MAX_BODY_BYTES = 1_000_000
 SUPPORTED_LANGS = {"ja"}
+# When set, POST /check requires a matching X-API-Key header.
+CHECKER_API_KEY = os.environ.get("CHECKER_API_KEY", "")
 
 
 class APIError(Exception):
@@ -63,6 +66,13 @@ async def limit_body_size(request: Request, call_next):
     return await call_next(request)
 
 
+def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
+    if CHECKER_API_KEY and not hmac.compare_digest(
+        (x_api_key or "").encode(), CHECKER_API_KEY.encode()
+    ):
+        raise APIError(401, "unauthorized", "missing or wrong X-API-Key header")
+
+
 @app.get("/health")
 def health() -> dict:
     return {"ok": True}
@@ -85,7 +95,12 @@ def lists(request: Request) -> ListsResponse:
     )
 
 
-@app.post("/check", response_model=CheckResponse, response_model_exclude_none=True)
+@app.post(
+    "/check",
+    response_model=CheckResponse,
+    response_model_exclude_none=True,
+    dependencies=[Depends(require_api_key)],
+)
 def check(req: CheckRequest, request: Request) -> CheckResponse:
     if not req.text.strip():
         raise APIError(422, "empty_text", "text is empty")
