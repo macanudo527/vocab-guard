@@ -34,8 +34,16 @@ converts it. Only lists whose license allows redistribution are committed.
   https://www.tanos.co.uk/jlpt/ are licenced under Creative Commons "BY" by Jonathan Waller".
 - **Upstream data:** Jonathan Waller's N5–N1 kanji lists, the same source as the vocabulary.
 - **Fetched:** 2026-10-26.
-- **Counts:** N5 79, N4 166, N3 367, N2 367, N1 1,232 (2,211 total, no kanji at two levels).
-- **Changes made by `convert_lists.py`:** none beyond reformatting to `kanji,level`.
+- **Counts upstream:** N5 79, N4 166, N3 367, N2 367, N1 1,232 (2,211 total, no kanji at
+  two levels).
+- **Changes made by `convert_lists.py`:** reformatted to `kanji,level`, plus two kanji
+  added from [`scripts/overrides/jlpt-kanji.csv`](../scripts/overrides/jlpt-kanji.csv):
+  **分 → N5** and **里 → N1** (2,213 total). Waller's lists leave both out at every level;
+  this was confirmed against the archived tanos N5 and N4 kanji pages (2020 snapshots) and
+  the independent kanji-data scrape. Without 分, N5 words such as 分かる, 自分 and 半分 would
+  be flagged at every level. The levels come from the old JLPT (分 was at level 4, the
+  easiest; 里 at level 1, the hardest). The converter fails if an override is ever added
+  upstream, so it can be removed.
 - **Attribution text:**
   > JLPT kanji levels from Jonathan Waller's JLPT Resources (tanos.co.uk/jlpt),
   > licensed CC BY, as converted by Bluskyo/JLPT_Vocabulary (MIT).

@@ -15,6 +15,8 @@ from pathlib import Path
 
 JLPT_LEVELS = ["N5", "N4", "N3", "N2", "N1"]
 CEFR_LEVELS = ["A1", "A2", "B1", "B2"]
+# Kanji that the upstream lists leave out entirely; see lists/SOURCES.md.
+JLPT_KANJI_OVERRIDES = Path(__file__).parent / "overrides" / "jlpt-kanji.csv"
 
 VARIANT_SEP = re.compile(r"[;,、\s]+")
 PAREN_NOTE = re.compile(r"[(（][^)）]*[)）]")
@@ -108,6 +110,12 @@ def convert_jlpt(raw: Path, out: Path) -> None:
             if len(char) != 1 or not KANJI.fullmatch(char):
                 raise ValueError(f"not a single kanji in kanji-n{n}.csv: {char!r}")
             keep_easiest(kanji, char, level, JLPT_LEVELS)
+    with open(JLPT_KANJI_OVERRIDES, encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            # Overrides only fill gaps, so an upstream fix shows up as an error here.
+            if row["kanji"] in kanji:
+                raise ValueError(f"override {row['kanji']!r} is already in the upstream list")
+            kanji[row["kanji"]] = row["level"]
     meta = {"name": "jlpt", "lang": "ja", "levels": JLPT_LEVELS}
     write_list(out, meta, vocab, kanji)
     print(f"jlpt: {len(vocab)} words, {len(kanji)} kanji -> {out}")

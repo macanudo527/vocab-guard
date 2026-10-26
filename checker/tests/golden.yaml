@@ -159,3 +159,8 @@
   text: 学校に行きます。
   list: jlpt-n6
   expect: {status: 400, error: unknown_list}
+
+- name: 分 passes on the real N5 list (added by the kanji override)
+  text: 半分は分かりました。
+  list: jlpt-n5
+  expect: {pass: true, violations: []}

@@ -11,7 +11,8 @@ licensed under Creative Commons "BY". Credit: **Jonathan Waller, tanos.co.uk**.
 
 The data was changed: it was reformatted into `word,reading,level` and `kanji,level`,
 spelling variants were split into separate rows, notes and affix marks were removed,
-readings were converted to hiragana, and duplicates were kept at the easiest level.
+readings were converted to hiragana, duplicates were kept at the easiest level, and two
+kanji missing from the upstream lists were added (分 at N5, 里 at N1).
 Details, pinned commits and the license evidence are in [../SOURCES.md](../SOURCES.md).
 
 These lists are community lists. The JLPT has published no official vocabulary or
