@@ -3,11 +3,12 @@
 Each list is a directory with up to three files:
 
 ```
-lists/data/jlpt/        # fetched by scripts/fetch_lists.sh (gitignored)
+lists/jlpt/             # JLPT N5–N1 (committed, CC BY; see jlpt/ATTRIBUTION.md)
   meta.json
   vocab.csv
   kanji.csv             # Japanese lists only
 lists/sample/           # tiny hand-made list used by the tests (committed, MIT)
+lists/data/cefrj/       # fetched only, never committed (gitignored)
 ```
 
 ## `meta.json`
@@ -55,11 +56,13 @@ scripts/fetch_lists.sh          # jlpt and cefrj
 scripts/fetch_lists.sh jlpt     # just one
 ```
 
-The script downloads each source at a pinned commit, checks its SHA-256, and
-converts it with `scripts/convert_lists.py`. Raw downloads are kept in
-`lists/data/.raw/`. Sources and licenses are in [SOURCES.md](SOURCES.md).
+`lists/jlpt/` is already committed, so you only need the script to fetch
+`cefrj` or to regenerate `jlpt`. The script downloads each source at a pinned
+commit, checks its SHA-256, and converts it with `scripts/convert_lists.py`.
+Raw downloads are kept in `lists/data/.raw/`. Sources and licenses are in
+[SOURCES.md](SOURCES.md).
 
 ## Bring your own list
 
-Create `lists/data/<name>/` with the three files above. Any list that follows
+Create `lists/data/<name>/` (gitignored) with the three files above. Any list that follows
 the format works, such as a textbook's glossary or a company's approved terms.

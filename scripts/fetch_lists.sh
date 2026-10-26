@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Downloads word-list sources at pinned commits, verifies their checksums,
-# and converts them into lists/data/<name>/. See lists/SOURCES.md.
+# and converts them. See lists/SOURCES.md.
+#   jlpt  -> lists/jlpt/        (committed; CC BY allows redistribution)
+#   cefrj -> lists/data/cefrj/  (gitignored; redistribution not granted)
 #
 #   scripts/fetch_lists.sh            # all lists
 #   scripts/fetch_lists.sh jlpt       # one list (jlpt or cefrj)
@@ -31,7 +33,7 @@ fetch_jlpt() {
   fetch "$BLU/n3_kanji.csv" "$raw/kanji-n3.csv" f32b1ac7e02efcbf29c46e9dfb75bdac9526254ed448b245d4cc3915410754ef
   fetch "$BLU/n2_kanji.csv" "$raw/kanji-n2.csv" 3678f64b6bccaca53686f31e9c2e4825e85ef5173d2312c134008dfcfa824f95
   fetch "$BLU/n1_kanji.csv" "$raw/kanji-n1.csv" ae0e4f451f4eae702c5d99d112e6910250a59568101a2639b9e574536d8d98ee
-  python3 "$ROOT/scripts/convert_lists.py" jlpt "$raw" "$DATA/jlpt"
+  python3 "$ROOT/scripts/convert_lists.py" jlpt "$raw" "$ROOT/lists/jlpt"
 }
 
 fetch_cefrj() {

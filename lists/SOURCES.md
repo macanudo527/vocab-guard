@@ -1,13 +1,13 @@
 # Sources
 
-Only `lists/sample/` is committed to this repo. Every other list is downloaded
-and converted locally by `scripts/fetch_lists.sh`, at the pinned commits below.
+`scripts/fetch_lists.sh` downloads every source at the pinned commits below and
+converts it. Only lists whose license allows redistribution are committed.
 
-| List | Committed? | Why |
-| --- | --- | --- |
-| `sample` | yes | Hand-made for this project, MIT. |
-| `jlpt` | no, fetched | The upstream license is attested only second-hand (see below). |
-| `cefrj` | no, fetched | The terms allow use but don't address redistribution. |
+| List | Location | Committed? | Why |
+| --- | --- | --- | --- |
+| `sample` | `lists/sample/` | yes | Hand-made for this project, MIT. |
+| `jlpt` | `lists/jlpt/` | yes | MIT repos over CC BY data; see [ATTRIBUTION.md](jlpt/ATTRIBUTION.md). |
+| `cefrj` | `lists/data/cefrj/` | no, fetched | The terms allow use but don't address redistribution. |
 
 ## `jlpt` vocabulary
 
@@ -15,7 +15,7 @@ and converted locally by `scripts/fetch_lists.sh`, at the pinned commits below.
   files `src/n5.csv` … `src/n1.csv`, commit `1ad66734417aca9dbcca6b2d5ee440cb13ab3ba0` (2025-08-11).
 - **License:** MIT, Copyright (c) 2020 Jamie Sinclair.
 - **Upstream data:** built from Jonathan Waller's JLPT Resources,
-  <http://www.tanos.co.uk/jlpt/>, described as Creative Commons "BY" (see the notes below).
+  <http://www.tanos.co.uk/jlpt/>, licensed Creative Commons "BY" (see [below](#the-tanoscouk-license)).
 - **Fetched:** 2026-10-26.
 - **Changes made by `convert_lists.py`:** spelling variants split into separate rows,
   notes in parentheses and the ～ affix marks removed, shared okurigana restored
@@ -56,17 +56,25 @@ so every N-level list is a community list. Candidates considered:
 - **Bluskyo/JLPT_Vocabulary:** small per-level files parsed straight from Waller's
   PDFs, from the same upstream as our vocabulary. **Chosen.**
 
-### Notes on the tanos.co.uk license
+### The tanos.co.uk license
 
 tanos.co.uk was unreachable on 2026-10-26 (the domain has name servers but no
-address record), so its own terms could not be read. Several independent projects
-that reuse the lists describe them as Creative Commons "BY" by Jonathan Waller,
-none with a version number: Bluskyo/JLPT_Vocabulary,
+address record), so the terms were read from the Wayback Machine. The site's
+"Sharing and copyrights" page, linked from every page as "Use my data!", is archived
+every year from 2011 to 2025. The latest snapshot,
+<https://web.archive.org/web/20251114165345/http://www.tanos.co.uk/jlpt/sharing/>
+(page dated October 12, 2011), says:
+
+> Everything on this site (that I'm not selling), is licenced under Creative Commons
+> "BY". Basically this means... use anything here however you like (commercial or
+> non-commercial), but credit my site. (A link would be nice.)
+
+The vocabulary and kanji lists are free downloads, not products for sale, so they
+are covered. No CC version is given. Independent projects that reuse the lists
+describe them the same way: Bluskyo/JLPT_Vocabulary,
 [oysteikt/tanos-japanese-word-books](https://git.pvv.ntnu.no/oysteikt/tanos-japanese-word-books),
 [hanabira.org](https://hanabira.org/about) and
 [Tanoshii Japanese](https://www.tanoshiijapanese.com/home/acknowledgements.cfm).
-CC BY would allow redistribution with attribution. Until the terms can be read
-first-hand, this repo doesn't commit the converted JLPT lists.
 
 ## `cefrj` vocabulary (English, for later)
 
