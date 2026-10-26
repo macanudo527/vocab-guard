@@ -1,0 +1,8 @@
+# Placeholder. Phase 3 replaces this with ruff + pytest and the GHCR image build.
+name: ci
+on: [push, pull_request]
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "CI is set up in Phase 3"

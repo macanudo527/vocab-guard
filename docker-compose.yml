@@ -1,0 +1,2 @@
+# checker + n8n, with a `demo` profile adding WordPress + MariaDB. Implemented in Phase 3.
+services: {}

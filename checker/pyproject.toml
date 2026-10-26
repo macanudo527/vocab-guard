@@ -1,0 +1,6 @@
+[project]
+name = "vocab-guard-checker"
+version = "0.0.0"
+description = "Checks text against level word and kanji lists."
+requires-python = ">=3.12,<3.13"
+dependencies = []
