@@ -54,7 +54,7 @@ def expand_entry(expression: str, reading: str) -> list[tuple[str, str]]:
         # Kana-only entries sometimes leave the reading blank.
         readings = [to_hiragana(w) for w in words if not KANJI.search(w)]
     if len(words) == len(readings):
-        pairs = list(zip(words, readings))
+        pairs = list(zip(words, readings, strict=True))
     elif len(readings) == 1:
         pairs = [(w, readings[0]) for w in words]
     elif len(words) == 1:

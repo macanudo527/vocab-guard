@@ -1,0 +1,161 @@
+# Golden cases for POST /check, all against lists/sample/.
+#
+# expect:
+#   pass: bool                  (optional)
+#   content_tokens: int         (optional)
+#   sentences: int              (optional) number of sentences returned
+#   violations:                 (required unless status is set) every violation, in order
+#     - {sentence: 0, surface: 勉強, reason: kanji_above_level, kanji: [勉, 強], suggestion: ...}
+#       kanji and suggestion are checked only when given.
+#   status / error:             for error responses
+# text_repeat: N repeats text N times (for oversized input).
+
+- name: polite past matches its dictionary form (食べました -> 食べる)
+  text: 学校で食べました。
+  list: sample-n5
+  expect: {pass: true, content_tokens: 2, violations: []}
+
+- name: negative past matches its dictionary form (行かなかった -> 行く)
+  text: 先生は学校に行かなかった。
+  list: sample-n5
+  expect: {pass: true, content_tokens: 3, violations: []}
+
+- name: in-list word with an above-level kanji
+  text: 毎日勉強します。
+  list: sample-n5
+  expect:
+    pass: false
+    violations:
+      - sentence: 0
+        surface: 勉強
+        reason: kanji_above_level
+        kanji: [勉, 強]
+        suggestion: "write in kana: べんきょう"
+
+- name: the same word passes at the level that has its kanji
+  text: 毎日勉強します。
+  list: sample-n4
+  expect: {pass: true, violations: []}
+
+- name: the same word written in kana passes
+  text: 毎日べんきょうします。
+  list: sample-n5
+  expect: {pass: true, violations: []}
+
+- name: kana suggestion uses the list reading, not Sudachi's (明日 -> あした, not あす)
+  text: 明日も来ます。
+  list: sample-n5
+  expect:
+    violations:
+      - sentence: 0
+        surface: 明日
+        reason: kanji_above_level
+        kanji: [明]
+        suggestion: "write in kana: あした"
+
+- name: compound valid only through the mode-A fallback (日本人 -> 日本 + 人)
+  text: 日本人の先生です。
+  list: sample-n5
+  expect: {pass: true, violations: []}
+
+- name: compound fails when a mode-A part is missing (大学生 -> 大学 + 生)
+  text: 大学生です。
+  list: sample-n5
+  expect:
+    violations:
+      - {sentence: 0, surface: 大学生, reason: not_in_list}
+
+- name: prefix joins with the next token (お + 茶 -> お茶)
+  text: お茶を飲みます。
+  list: sample-n4
+  expect: {pass: true, content_tokens: 3, violations: []}
+
+- name: out-of-list word
+  text: 先生は問題を把握しました。
+  list: sample-n5
+  expect:
+    pass: false
+    violations:
+      - {sentence: 0, surface: 問題, reason: not_in_list}
+      - {sentence: 0, surface: 把握, reason: not_in_list}
+
+- name: particles, punctuation and numbers are ignored
+  text: 毎日、水を2本飲みます！
+  list: sample-n5
+  expect: {pass: true, content_tokens: 4, violations: []}
+
+- name: allowlisted name passes with the proper-noun option off
+  text: 田中さんは学校に来ます。
+  list: sample-n5
+  allow: [田中]
+  options: {allow_proper_nouns: false}
+  expect: {pass: true, violations: []}
+
+- name: multi-token allowlist entry passes
+  text: 山田花子さんは学校に来ます。
+  list: sample-n5
+  allow: [山田花子]
+  options: {allow_proper_nouns: false}
+  expect: {pass: true, violations: []}
+
+- name: proper nouns pass with the option on (the default)
+  text: 田中さんは東京に住んでいます。
+  list: sample-n5
+  expect:
+    violations:
+      - {sentence: 0, surface: 住ん, reason: not_in_list}
+
+- name: proper nouns are violations with the option off
+  text: 田中さんは東京に住んでいます。
+  list: sample-n5
+  options: {allow_proper_nouns: false}
+  expect:
+    violations:
+      - {sentence: 0, surface: 田中, reason: not_in_list}
+      - {sentence: 0, surface: 東京, reason: not_in_list}
+      - {sentence: 0, surface: 住ん, reason: not_in_list}
+
+- name: out-of-list katakana word is a violation with the option off (the default)
+  text: パソコンでテレビを見ます。
+  list: sample-n5
+  expect:
+    violations:
+      - {sentence: 0, surface: パソコン, reason: not_in_list}
+
+- name: out-of-list katakana word passes with the option on
+  text: パソコンでテレビを見ます。
+  list: sample-n5
+  options: {allow_katakana: true}
+  expect: {pass: true, content_tokens: 2, violations: []}
+
+- name: multi-sentence text reports the right sentence indexes
+  text: "毎日学校に行きます。\n先生は問題を把握しました。「今日はいい天気ですね！」と友達が言った。"
+  list: sample-n5
+  expect:
+    sentences: 4
+    violations:
+      - {sentence: 1, surface: 問題, reason: not_in_list}
+      - {sentence: 1, surface: 把握, reason: not_in_list}
+      - {sentence: 3, surface: 友達, reason: kanji_above_level, kanji: [達]}
+      - {sentence: 3, surface: 言っ, reason: not_in_list}
+
+- name: empty text is a clean error
+  text: ""
+  list: sample-n5
+  expect: {status: 422, error: empty_text}
+
+- name: whitespace-only text is a clean error
+  text: " \n　"
+  list: sample-n5
+  expect: {status: 422, error: empty_text}
+
+- name: oversized text is a clean error
+  text: 学校に行きます。
+  text_repeat: 2501
+  list: sample-n5
+  expect: {status: 413, error: text_too_long}
+
+- name: unknown list is a clean error
+  text: 学校に行きます。
+  list: jlpt-n6
+  expect: {status: 400, error: unknown_list}
