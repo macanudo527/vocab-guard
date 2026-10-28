@@ -2,10 +2,13 @@
 
 Rules are listed in docs/BUILD_PLAN.md (Phase 2, "Japanese analysis rules").
 Two additions:
-- Prefix join: a 接頭辞 token and the token after it pass together when the
-  joined word is in the list (お + 茶 -> お茶), since Sudachi splits them.
-- Kana suggestions use the list's reading when the word is in dictionary form
-  (私 -> わたし rather than Sudachi's わたくし).
+- Neighbour join: a token that fails on its own passes together with up to
+  three neighbouring tokens when they form a list word, since Sudachi splits
+  some list entries (お + 茶 -> お茶, すぐ + に -> すぐに, 二 + つ -> 二つ) and
+  kana compounds (にち + ようび -> にちようび).
+- Kana suggestions use the list's readings when the word is in dictionary form
+  (明日 -> あした rather than Sudachi's あす), and name every reading the list
+  allows when there is more than one (私 -> わたくし or わたし).
 """
 
 import re
@@ -26,6 +29,7 @@ KATAKANA_ONLY = re.compile(r"[ァ-ヺー・]+")
 # even if every character takes 4 bytes in UTF-8.
 MAX_CHUNK_CHARS = 12_000
 CHUNK_BREAKS = "、，, 　\t"
+MAX_JOIN = 4
 
 
 def to_hiragana(text: str) -> str:
@@ -91,29 +95,55 @@ def _compound_matches(m: Morpheme, lst: LevelList) -> bool:
     return len(parts) > 1 and all(_skippable(p) or _matches(p, lst) for p in parts)
 
 
-def _prefix_joins(morphemes: list[Morpheme], lst: LevelList) -> set[int]:
+def _span_matches(parts: list[Morpheme], lst: LevelList) -> bool:
+    surface = "".join(m.surface() for m in parts)
+    forms = {
+        surface,
+        "".join(m.surface() for m in parts[:-1]) + parts[-1].dictionary_form(),
+        "".join(m.normalized_form() for m in parts),
+    }
+    readings = {
+        to_hiragana(surface),
+        to_hiragana("".join(m.reading_form() for m in parts)),
+    }
+    return bool(forms & lst.words or readings & lst.readings)
+
+
+def _joins(morphemes: list[Morpheme], lst: LevelList) -> set[int]:
+    """Indices of tokens that fail alone but form a list word with their neighbours."""
     joined: set[int] = set()
-    for i, (prefix, word) in enumerate(zip(morphemes, morphemes[1:], strict=False)):
-        if prefix.part_of_speech()[0] != "接頭辞" or _skippable(word):
+    for i, m in enumerate(morphemes):
+        if i in joined or _skippable(m) or _matches(m, lst) or _compound_matches(m, lst):
             continue
-        forms = {
-            prefix.surface() + word.dictionary_form(),
-            prefix.normalized_form() + word.normalized_form(),
-        }
-        reading = to_hiragana(prefix.reading_form() + word.reading_form())
-        if forms & lst.words or reading in lst.readings:
-            joined.update((i, i + 1))
+        # Try the longest span first.
+        for size in range(min(MAX_JOIN, len(morphemes)), 1, -1):
+            first = max(0, i - size + 1)
+            last = min(i, len(morphemes) - size)
+            span = next(
+                (
+                    range(a, a + size)
+                    for a in range(first, last + 1)
+                    if _span_matches(morphemes[a : a + size], lst)
+                ),
+                None,
+            )
+            if span:
+                joined.update(span)
+                break
     return joined
 
 
-def _reading(m: Morpheme, lst: LevelList) -> str:
+def _readings(m: Morpheme, lst: LevelList) -> list[str]:
+    """Kana spellings for a token, Sudachi's reading first when the list allows it."""
     reading = to_hiragana(m.reading_form())
     if m.surface() == m.dictionary_form():
         for form in (m.dictionary_form(), m.normalized_form()):
             listed = lst.word_readings.get(form)
             if listed:
-                return reading if reading in listed else listed[0]
-    return reading
+                if reading not in listed:
+                    return list(listed)
+                return [reading, *(r for r in listed if r != reading)]
+    return [reading]
 
 
 def _kanji_above(surface: str, lst: LevelList) -> list[str]:
@@ -165,7 +195,7 @@ class Analyzer:
             sentence = text[start:end]
             tokens = self._tokenize(sentence)
             morphemes = [m for _, m in tokens]
-            joined = _prefix_joins(morphemes, lst)
+            joined = _joins(morphemes, lst)
             allow_spans = _find_spans(sentence, allow)
             violations = []
             for i, (offset, m) in enumerate(tokens):
@@ -183,7 +213,8 @@ class Analyzer:
                 if not in_list and options.allow_katakana and KATAKANA_ONLY.fullmatch(surface):
                     continue
                 content += 1
-                reading = _reading(m, lst)
+                readings = _readings(m, lst)
+                reading = readings[0]
                 if not in_list:
                     violations.append(
                         Violation(
@@ -201,7 +232,7 @@ class Analyzer:
                             reading=reading,
                             reason="kanji_above_level",
                             kanji=above,
-                            suggestion=f"write in kana: {reading}",
+                            suggestion=f"write in kana: {' or '.join(readings)}",
                         )
                     )
                 else:

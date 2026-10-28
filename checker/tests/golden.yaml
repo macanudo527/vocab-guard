@@ -139,6 +139,43 @@
       - {sentence: 3, surface: 友達, reason: kanji_above_level, kanji: [達]}
       - {sentence: 3, surface: 言っ, reason: not_in_list}
 
+- name: list word that Sudachi splits off a particle passes (すぐ + に -> すぐに)
+  text: すぐに学校に行きます。
+  list: sample-n5
+  expect: {pass: true, content_tokens: 3, violations: []}
+
+- name: numeral plus counter passes as the listed word (二 + つ -> 二つ)
+  text: 水を二つ飲みました。
+  list: sample-n5
+  expect: {pass: true, violations: []}
+
+- name: kana compound split in two passes as the listed word (にち + ようび)
+  text: にちようびに来ます。
+  list: sample-n5
+  expect: {pass: true, content_tokens: 3, violations: []}
+
+- name: the joined word still has its kanji checked
+  text: 日曜日に来ます。
+  list: sample-n5
+  expect:
+    violations:
+      - sentence: 0
+        surface: 日曜日
+        reason: kanji_above_level
+        kanji: [曜]
+        suggestion: "write in kana: にちようび"
+
+- name: kana suggestion names every reading the list allows (私)
+  text: 私は学生です。
+  list: sample-n5
+  expect:
+    violations:
+      - sentence: 0
+        surface: 私
+        reason: kanji_above_level
+        kanji: [私]
+        suggestion: "write in kana: わたくし or わたし"
+
 - name: empty text is a clean error
   text: ""
   list: sample-n5

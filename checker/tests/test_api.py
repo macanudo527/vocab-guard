@@ -9,8 +9,8 @@ def test_lists(client):
         "lang": "ja",
         "level": "N4",
         "levels": ["N5", "N4"],
-        "words": 54,
-        "kanji": 44,
+        "words": 57,
+        "kanji": 45,
     }
     assert "jlpt-n3" in lists
 

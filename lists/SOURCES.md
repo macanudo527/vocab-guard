@@ -101,6 +101,6 @@ describe them the same way: Bluskyo/JLPT_Vocabulary,
 
 ## `sample`
 
-- Hand-made for this project's tests: 54 words (N5, N4) and 44 kanji.
+- Hand-made for this project's tests: 57 words (N5, N4) and 45 kanji.
 - Levels roughly follow the JLPT lists but are simplified, so don't use it for real content.
 - **License:** MIT, same as this repo.
