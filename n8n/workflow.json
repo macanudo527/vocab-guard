@@ -1,1 +1,840 @@
-{}
+{
+  "name": "vocab-guard: level-checked articles",
+  "nodes": [
+    {
+      "id": "9a787ece-7bd1-5acb-b10e-113551aa25d2",
+      "name": "Article form",
+      "webhookId": "cdd58cee-d932-5f04-93f7-9b901ea59262",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "formTitle": "Write a level-checked article",
+        "formDescription": "Writes a Japanese article, checks every word and kanji against the level's lists, fixes what fails, and saves a WordPress draft.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Topic",
+              "fieldName": "topic",
+              "placeholder": "e.g. A weekend at the beach",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Level",
+              "fieldName": "level",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "N5"
+                  },
+                  {
+                    "option": "N4"
+                  },
+                  {
+                    "option": "N3"
+                  },
+                  {
+                    "option": "N2"
+                  },
+                  {
+                    "option": "N1"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Target length (Japanese characters)",
+              "fieldName": "target_length",
+              "fieldType": "number",
+              "defaultValue": "400",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Article type",
+              "fieldName": "article_type",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Blog post"
+                  },
+                  {
+                    "option": "News article"
+                  },
+                  {
+                    "option": "Short story"
+                  },
+                  {
+                    "option": "Diary entry"
+                  },
+                  {
+                    "option": "How-to guide"
+                  }
+                ]
+              },
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "path": "vocab-guard",
+          "buttonLabel": "Write article"
+        }
+      }
+    },
+    {
+      "id": "a5c6f6f3-3e0b-525c-a51a-dad44a97faac",
+      "name": "Batch webhook",
+      "webhookId": "d79a992b-96b9-5d84-a40d-4203a09eae08",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        192
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vocab-guard-batch",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {}
+      }
+    },
+    {
+      "id": "c86cb8f7-5e55-5dc0-9ed2-ce0043aa8827",
+      "name": "Read input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        96
+      ],
+      "parameters": {
+        "jsCode": "// Both triggers land here. The form sends its fields directly; the webhook\n// sends them as a JSON body.\nconst item = $input.first().json;\nconst fromWebhook = item.body !== undefined && item.headers !== undefined;\nconst data = fromWebhook ? item.body : item;\n\nconst topic = String(data.topic ?? '').trim();\nconst level = String(data.level ?? '').trim().toUpperCase();\nif (!topic) throw new Error('topic is required');\nif (!level) throw new Error('level is required, for example N4');\n\nreturn [\n  {\n    json: {\n      source: fromWebhook ? 'webhook' : 'form',\n      topic,\n      level,\n      target_length: Number(data.target_length) || 400,\n      article_type: String(data.article_type || 'Blog post').trim(),\n    },\n  },\n];\n"
+      }
+    },
+    {
+      "id": "cf4a31b8-cc1b-5faf-9a3d-88607983ef14",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        480,
+        96
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9e75b762-974d-5b13-ab3d-7b7e68da67c8",
+              "name": "checker_url",
+              "value": "http://checker:8000",
+              "type": "string"
+            },
+            {
+              "id": "18e38c68-0d1f-5018-89c3-a846eb9ab4bd",
+              "name": "list",
+              "value": "jlpt",
+              "type": "string"
+            },
+            {
+              "id": "b7630668-9350-55b1-ae7d-8e3bb867b028",
+              "name": "max_rounds",
+              "value": 5,
+              "type": "number"
+            },
+            {
+              "id": "4f7c6264-5aa9-592d-9b4a-66b688cd3a46",
+              "name": "draft_model",
+              "value": "gpt-6.1-sol",
+              "type": "string"
+            },
+            {
+              "id": "411a402d-64bc-57d9-9398-4c99a3a3253d",
+              "name": "repair_model",
+              "value": "gpt-6-luna",
+              "type": "string"
+            },
+            {
+              "id": "a00c0692-dbdd-54ce-a250-a1771c2871cc",
+              "name": "service_tier",
+              "value": "flex",
+              "type": "string"
+            },
+            {
+              "id": "f6a9cb25-75a0-5c93-b7c4-aa09fadac7be",
+              "name": "draft_price_input",
+              "value": 1,
+              "type": "number"
+            },
+            {
+              "id": "cf5ba59a-9231-5fa1-b612-c5be6445561e",
+              "name": "draft_price_output",
+              "value": 5,
+              "type": "number"
+            },
+            {
+              "id": "8b103f46-0b57-5d17-862a-8eb019f48f2c",
+              "name": "repair_price_input",
+              "value": 0.05,
+              "type": "number"
+            },
+            {
+              "id": "fec93b96-54d1-51c9-9f76-c34c2081ccfd",
+              "name": "repair_price_output",
+              "value": 0.25,
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "0b99cf48-02d4-585a-bccb-7c045dfb042d",
+      "name": "Draft prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        96
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "139690f2-3af9-5e22-bad8-0823ec42ec1d",
+              "name": "prompt",
+              "value": "=You write short reading texts in Japanese for learners at JLPT {{ $json.level }}.\n\nWrite a {{ $json.article_type.toLowerCase() }} about this topic: {{ $json.topic }}\n\nRules:\n- Use only words and kanji that a JLPT {{ $json.level }} learner knows. If a word is harder, choose an easier word. If a kanji is harder, write the word in hiragana.\n- Write short sentences with one idea each. End each sentence with 。, ！ or ？.\n- Use plain, simple grammar for JLPT {{ $json.level }}.\n- Make the body about {{ $json.target_length }} Japanese characters long.\n- Separate paragraphs with a blank line. No headings, lists, Markdown, furigana or romaji.\n- The title is one short line at the same level.\n\nReply with JSON only, in this form:\n{\"title\": \"...\", \"body\": \"...\"}",
+              "type": "string"
+            },
+            {
+              "id": "14d66a0c-78e1-5baa-931e-f939e06b954c",
+              "name": "model",
+              "value": "={{ $json.draft_model }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "fb54e53e-f968-5f0c-b753-e3959a19f4d2",
+      "name": "Write draft",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "position": [
+        960,
+        96
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "batching": {}
+      }
+    },
+    {
+      "id": "5941ef00-35c5-5b29-bbf1-e7993c9dd409",
+      "name": "Chat model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1680,
+        512
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.model }}"
+        },
+        "responsesApiEnabled": false,
+        "options": {
+          "extraBody": "={{ JSON.stringify({ service_tier: $json.service_tier }) }}",
+          "timeout": 900000,
+          "maxRetries": 4
+        }
+      }
+    },
+    {
+      "id": "819472b6-e0a5-5021-9581-aff220b30da8",
+      "name": "Read draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        96
+      ],
+      "parameters": {
+        "jsCode": "// Turns the model's reply into the state that goes around the check loop.\nconst input = $('Draft prompt').first().json;\nconst reply = String($input.first().json.text ?? '');\n\nconst draft = parseJson(reply);\nconst title = String(draft.title ?? '').replace(/\\s+/g, ' ').trim();\nconst body = String(draft.body ?? '').replace(/\\r\\n?/g, '\\n').trim();\nif (!title || !body) {\n  throw new Error(`The draft has no title or body. Model reply: ${reply.slice(0, 300)}`);\n}\n\nconst { prompt, model, ...settings } = input;\nreturn [\n  {\n    json: {\n      ...settings,\n      list_name: `${settings.list}-${settings.level.toLowerCase()}`,\n      // The title is checked and repaired too, as the first line.\n      text: `${title}\\n\\n${body}`,\n      round: 0,\n      first_draft_pass_rate: null,\n      first_draft_content_tokens: null,\n      caught_words: [],\n      caught_kanji: [],\n      rejected_words: [],\n      repairs: [],\n      repair_errors: 0,\n      tokens: {\n        draft: { input: estimateTokens(prompt), output: estimateTokens(reply) },\n        repair: { input: 0, output: 0 },\n      },\n    },\n  },\n];\n\n// Models sometimes wrap the JSON in a code fence or add a sentence around it.\nfunction parseJson(reply) {\n  const start = reply.indexOf('{');\n  const end = reply.lastIndexOf('}');\n  if (start === -1 || end < start) {\n    throw new Error(`No JSON object in the model reply: ${reply.slice(0, 300)}`);\n  }\n  return JSON.parse(reply.slice(start, end + 1));\n}\n\n// n8n doesn't pass the model's real token counts to later nodes, so this\n// estimates them: about one token per Japanese character and four characters\n// per token for everything else. Hidden reasoning tokens aren't counted.\nfunction estimateTokens(text) {\n  let cjk = 0;\n  let other = 0;\n  for (const ch of String(text)) {\n    if (ch.codePointAt(0) >= 0x3000) cjk += 1;\n    else other += 1;\n  }\n  return Math.ceil(cjk + other / 4);\n}\n"
+      }
+    },
+    {
+      "id": "8cc6a02c-65e8-54ee-bddd-a7bbe2066e5f",
+      "name": "Round start",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1504,
+        96
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "8d6dfde2-6dee-5daa-aff6-8457e332485d",
+      "name": "Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1744,
+        96
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.checker_url }}/check",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $json.text, list: $json.list_name, lang: 'ja' }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      }
+    },
+    {
+      "id": "9609e0ed-3efd-5a37-88cc-897c6b057d90",
+      "name": "Read check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1984,
+        96
+      ],
+      "parameters": {
+        "jsCode": "// Adds the checker's result to the state and decides whether to stop.\nconst state = $('Round start').first().json;\nconst check = $input.first().json;\n\nconst caughtWords = new Set(state.caught_words);\nconst caughtKanji = new Set(state.caught_kanji);\n// Words that aren't in the list at all, so a repair can't swap one for another.\nconst rejected = new Set(state.rejected_words);\nfor (const sentence of check.sentences) {\n  for (const v of sentence.violations) {\n    caughtWords.add(v.lemma);\n    for (const k of v.kanji ?? []) caughtKanji.add(k);\n    if (v.reason === 'not_in_list') rejected.add(v.lemma);\n  }\n}\n\nconst done = check.pass || state.round >= state.max_rounds;\n\n// What the repair step gets: each failing sentence, what is wrong with it,\n// and its neighbours for context.\nconst failing = [];\nif (!done) {\n  check.sentences.forEach((s, i) => {\n    if (s.ok) return;\n    failing.push({\n      index: s.index,\n      sentence: s.text,\n      before: check.sentences[i - 1]?.text ?? '',\n      after: check.sentences[i + 1]?.text ?? '',\n      problems: s.violations.map(describe),\n    });\n  });\n}\n\nconst first = state.round === 0;\nreturn [\n  {\n    json: {\n      ...state,\n      check,\n      done,\n      failing,\n      first_draft_pass_rate: first ? check.pass_rate : state.first_draft_pass_rate,\n      first_draft_content_tokens: first ? check.content_tokens : state.first_draft_content_tokens,\n      caught_words: [...caughtWords],\n      caught_kanji: [...caughtKanji],\n      rejected_words: [...rejected],\n    },\n  },\n];\n\nfunction describe(v) {\n  if (v.reason === 'kanji_above_level') {\n    const kana = v.suggestion?.replace(/^write in kana: /, '') ?? v.reading;\n    return `「${v.surface}」 has kanji above ${state.level} (${v.kanji.join('')}). Write it in kana: ${kana}`;\n  }\n  return `「${v.surface}」 is not in the ${state.level} word list. Use a simpler word.`;\n}\n"
+      }
+    },
+    {
+      "id": "02d972ac-157c-5bf0-a518-ce157676b471",
+      "name": "Passed or out of rounds?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2224,
+        96
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "52b90d39-1a5a-5d54-bed1-323ecac964ad",
+              "leftValue": "={{ $json.done }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "4e1e0553-85fd-5948-aedf-2e9a7c389017",
+      "name": "Repair prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2464,
+        304
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2a6b1633-06a8-5985-a22a-f5beacf3bbdb",
+              "name": "prompt",
+              "value": "=You edit Japanese reading texts for learners at JLPT {{ $json.level }}. A word checker flagged the sentences below. Rewrite each one so it uses only words and kanji a JLPT {{ $json.level }} learner knows.\n\nRules:\n- Keep the meaning.\n- Return exactly one sentence for each input sentence, with the same ending punctuation.\n- Replace each flagged word with a simpler word. When the problem is a kanji, write that word in kana.\n- Do not use any of these words, which the checker has already rejected: {{ $json.rejected_words.join('、') || 'none so far' }}. If a sentence needs one, say it differently.\n- Do not add names or new information.\n- \"before\" and \"after\" are the neighbouring sentences, for context only. Do not return them.\n\nSentences:\n{{ JSON.stringify($json.failing, null, 2) }}\n\nReply with JSON only. Map each sentence's index to its new sentence:\n{\"<index>\": \"<new sentence>\"}",
+              "type": "string"
+            },
+            {
+              "id": "699637ee-ff6d-54b1-92c6-6e85fa4af7ee",
+              "name": "model",
+              "value": "={{ $json.repair_model }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "d204dc99-2ad1-5a2e-ad60-75373136291d",
+      "name": "Repair sentences",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "position": [
+        2704,
+        304
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "batching": {}
+      }
+    },
+    {
+      "id": "26b11d48-951c-51a5-a582-63b59472cce7",
+      "name": "Apply repairs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3008,
+        304
+      ],
+      "parameters": {
+        "jsCode": "// Puts the rewritten sentences back in place and starts the next round.\nconst state = $('Repair prompt').first().json;\nconst reply = String($input.first().json.text ?? '');\n\nlet rewrites = {};\nlet repairErrors = state.repair_errors;\ntry {\n  rewrites = parseJson(reply);\n} catch (error) {\n  // A bad reply uses up a round but doesn't stop the run: the next check\n  // sends the same sentences again.\n  repairErrors += 1;\n}\n\nconst failing = new Map(state.failing.map((f) => [f.index, f]));\n// The checker's offsets count code points, so work on an array of them.\nconst chars = Array.from(state.text);\nconst repairs = [];\n// Go from the last sentence to the first so earlier offsets stay valid.\nfor (const s of [...state.check.sentences].reverse()) {\n  const f = failing.get(s.index);\n  const rewrite = rewrites[String(s.index)];\n  if (!f || typeof rewrite !== 'string') continue;\n  const sentence = rewrite.replace(/\\s*\\n\\s*/g, '').trim();\n  if (!sentence) continue;\n  chars.splice(s.start, s.end - s.start, ...sentence);\n  repairs.unshift({\n    round: state.round + 1,\n    index: s.index,\n    original: s.text,\n    problems: f.problems,\n    repaired: sentence,\n  });\n}\n\nconst { prompt, model, check, failing: _failing, done, ...rest } = state;\nreturn [\n  {\n    json: {\n      ...rest,\n      text: chars.join(''),\n      round: state.round + 1,\n      repairs: [...state.repairs, ...repairs],\n      repair_errors: repairErrors,\n      tokens: {\n        ...state.tokens,\n        repair: {\n          input: state.tokens.repair.input + estimateTokens(prompt),\n          output: state.tokens.repair.output + estimateTokens(reply),\n        },\n      },\n    },\n  },\n];\n\n// Models sometimes wrap the JSON in a code fence or add a sentence around it.\nfunction parseJson(reply) {\n  const start = reply.indexOf('{');\n  const end = reply.lastIndexOf('}');\n  if (start === -1 || end < start) {\n    throw new Error(`No JSON object in the model reply: ${reply.slice(0, 300)}`);\n  }\n  return JSON.parse(reply.slice(start, end + 1));\n}\n\n// n8n doesn't pass the model's real token counts to later nodes, so this\n// estimates them: about one token per Japanese character and four characters\n// per token for everything else. Hidden reasoning tokens aren't counted.\nfunction estimateTokens(text) {\n  let cjk = 0;\n  let other = 0;\n  for (const ch of String(text)) {\n    if (ch.codePointAt(0) >= 0x3000) cjk += 1;\n    else other += 1;\n  }\n  return Math.ceil(cjk + other / 4);\n}\n"
+      }
+    },
+    {
+      "id": "c6b5dedc-7535-535e-a779-51e4230d4a21",
+      "name": "Build post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2464,
+        -96
+      ],
+      "parameters": {
+        "jsCode": "// Splits the checked text back into title and body and writes the report.\nconst state = $input.first().json;\nconst [title, ...rest] = state.text.split('\\n');\nconst body = rest.join('\\n').trim();\n\nconst html = body\n  .split(/\\n\\s*\\n/)\n  .map((p) => `<p>${escapeHtml(p.trim()).replace(/\\n/g, '<br>')}</p>`)\n  .join('\\n');\n\nconst { tokens } = state;\nconst cost =\n  (tokens.draft.input * state.draft_price_input +\n    tokens.draft.output * state.draft_price_output +\n    tokens.repair.input * state.repair_price_input +\n    tokens.repair.output * state.repair_price_output) /\n  1e6;\n\nconst report = {\n  title,\n  topic: state.topic,\n  level: state.level,\n  list: state.list_name,\n  article_type: state.article_type,\n  target_length: state.target_length,\n  length: Array.from(body).length,\n  pass: state.check.pass,\n  final_pass_rate: state.check.pass_rate,\n  first_draft_pass_rate: state.first_draft_pass_rate,\n  content_tokens: state.check.content_tokens,\n  first_draft_content_tokens: state.first_draft_content_tokens,\n  rounds_used: state.round,\n  violations_left: state.check.sentences.flatMap((s) =>\n    s.violations.map((v) => ({ sentence: s.index, text: s.text, ...v })),\n  ),\n  unique_words_caught: state.caught_words,\n  kanji_caught: state.caught_kanji,\n  repairs: state.repairs,\n  repair_errors: state.repair_errors,\n  models: { draft: state.draft_model, repair: state.repair_model },\n  tokens_estimated: {\n    ...tokens,\n    total: tokens.draft.input + tokens.draft.output + tokens.repair.input + tokens.repair.output,\n  },\n  estimated_cost_usd: Number(cost.toFixed(6)),\n  execution_id: $execution.id,\n};\n\nreturn [{ json: { title, html, report, source: state.source } }];\n\nfunction escapeHtml(s) {\n  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n}\n"
+      }
+    },
+    {
+      "id": "c2b0de21-339a-5501-8ea7-27c45d050997",
+      "name": "Create draft",
+      "type": "n8n-nodes-base.wordpress",
+      "typeVersion": 1,
+      "position": [
+        2704,
+        -96
+      ],
+      "parameters": {
+        "title": "={{ $json.title }}",
+        "additionalFields": {
+          "content": "={{ $json.html }}",
+          "status": "draft"
+        }
+      }
+    },
+    {
+      "id": "eb973083-333a-56c6-88ed-9cafbbec1451",
+      "name": "Finish report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2944,
+        -96
+      ],
+      "parameters": {
+        "jsCode": "// Adds the WordPress draft to the report and builds the page the form shows.\nconst { report, source } = $('Build post').first().json;\nconst post = $input.first().json;\n\nconst site = String(post.link ?? '').split('?')[0].replace(/\\/$/, '');\nreport.post = {\n  id: post.id,\n  status: post.status,\n  edit_url: `${site}/wp-admin/post.php?post=${post.id}&action=edit`,\n};\n\nconst percent = (rate) => (rate === null ? 'n/a' : `${(rate * 100).toFixed(1)}%`);\nconst left = report.violations_left.length;\nconst items = [\n  report.pass ? 'Every word and kanji is in the list.' : `${left} problem(s) left after ${report.rounds_used} rounds.`,\n  `Pass rate: ${percent(report.first_draft_pass_rate)} in the first draft, ${percent(report.final_pass_rate)} at the end.`,\n  `Repair rounds: ${report.rounds_used}.`,\n  `Words caught: ${report.unique_words_caught.join('、') || 'none'}.`,\n  `Estimated cost: $${report.estimated_cost_usd.toFixed(4)}.`,\n];\nconst formHtml = [\n  `<h3>${escapeHtml(report.title)}</h3>`,\n  '<p>Saved as a WordPress draft (not published).</p>',\n  `<ul>${items.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</ul>`,\n  `<p><a href=\"${escapeHtml(report.post.edit_url)}\" target=\"_blank\">Open the draft</a></p>`,\n].join('\\n');\n\nreturn [{ json: { report, source, form_html: formHtml } }];\n\nfunction escapeHtml(s) {\n  return String(s)\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;')\n    .replace(/\"/g, '&quot;');\n}\n"
+      }
+    },
+    {
+      "id": "c924e061-f27e-5f7b-98c0-f815ab277eed",
+      "name": "Started from the form?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3184,
+        -96
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a07d56fa-d597-5c43-8946-d814e4cdae38",
+              "leftValue": "={{ $json.source }}",
+              "rightValue": "form",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "f02178f6-fec9-586d-a0c9-41caf32b477f",
+      "name": "Show report",
+      "webhookId": "eb3b0f9b-8e90-509a-9efd-bf7ca0f44b09",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        3424,
+        -192
+      ],
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "showText",
+        "responseText": "={{ $json.form_html }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "53df8fb5-4410-5302-b302-d116cf1045d8",
+      "name": "Webhook reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3424,
+        0
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify($json.report) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "e0acaa63-5f1a-5b1c-8fb6-e706e84cb1bc",
+      "name": "Note: setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        -320
+      ],
+      "parameters": {
+        "content": "## vocab-guard: level-checked articles\n\nWrites a Japanese article at a JLPT level, checks every word and kanji with the [vocab-guard](https://github.com/macanudo527/vocab-guard) checker, has the model rewrite only the failing sentences (up to 5 rounds), and saves the result as a WordPress **draft** with a report. It never publishes.\n\n### Setup\n1. **Checker.** Run it: `docker run -p 8000:8000 ghcr.io/macanudo527/vocab-guard-checker:0.1`. Put its URL in **Config** (`http://checker:8000` if you use the repo's Docker Compose).\n2. **LLM.** Open **Chat model** and add an OpenAI credential. Model names and prices are in **Config**.\n3. **WordPress.** Open **Create draft** and add a WordPress credential: user name, an application password (Users > Profile in wp-admin) and the site URL (`http://wordpress` with the repo's Compose demo).\n4. **Publish** the workflow.\n5. Open the form URL from **Article form**, or POST JSON to the **Batch webhook** URL:\n`{\"topic\": \"A day at the zoo\", \"level\": \"N4\", \"target_length\": 400, \"article_type\": \"Blog post\"}`\nThe webhook answers with the report JSON.\n",
+        "width": 500,
+        "height": 760
+      }
+    },
+    {
+      "id": "1e1a6bf9-9688-582a-be34-b3e9a703ff02",
+      "name": "Note: settings",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        448,
+        -320
+      ],
+      "parameters": {
+        "content": "### Settings live in Config\n- **checker_url**: where the checker runs.\n- **list**: the word list's base name. The level is added to it, so `jlpt` + N4 = `jlpt-n4`. For your own list, mount it into the checker and set its name here (the form's level choices must match its levels).\n- **draft_model / repair_model**: repairs can use a cheaper model.\n- **service_tier**: `flex` gets OpenAI's Batch prices for slower answers; `default` or `auto` for normal speed. Other providers ignore it.\n- **prices**: USD per 1M tokens for the models and tier above, for the cost estimate.\n- **max_rounds**: repair rounds before giving up.\n\nIf the checker has `CHECKER_API_KEY` set, open **Check** and set Authentication to Header Auth with the name `X-API-Key`.\n",
+        "width": 480,
+        "height": 380
+      }
+    },
+    {
+      "id": "e2acd903-7b9d-5596-a596-2b1d47f6bd1b",
+      "name": "Note: loop",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1456,
+        -320
+      ],
+      "parameters": {
+        "content": "### Check and repair loop\n**Check** sends the whole text to the checker. If anything fails, only the failing sentences go to **Repair sentences**, each with what is wrong and the sentences around it. **Apply repairs** puts them back by position, and the text is checked again. The loop stops when everything passes or after `max_rounds` repairs.\n\nThe title is checked too, as the first line.\n",
+        "width": 720,
+        "height": 370
+      }
+    },
+    {
+      "id": "f689bee6-3bbc-5cf1-956e-bf6f8c732a39",
+      "name": "Note: provider",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        736,
+        336
+      ],
+      "parameters": {
+        "content": "### Using another LLM provider\nThe prompts are plain text and ask for plain JSON, so any chat model works. Replace **Chat model** with, for example, the Anthropic or Google Gemini chat model node, connect it to both **Write draft** and **Repair sentences**, and set its model to the expression `{{ $json.model }}`. Then change the model names and prices in **Config**.\n",
+        "width": 560,
+        "height": 330
+      }
+    },
+    {
+      "id": "81a1f301-0b93-51d9-b9bc-96559b9db682",
+      "name": "Note: output",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2416,
+        -480
+      ],
+      "parameters": {
+        "content": "### Output\n**Create draft** always saves with status *draft*. The report has the final and first-draft pass rates, problems left, rounds used, words and kanji caught, every repair, and an estimated cost.\n\nToken counts are estimated from text length because n8n doesn't pass a chat model's real counts to later nodes (they are in the execution log). Reasoning tokens aren't included.\n",
+        "width": 1000,
+        "height": 330
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Article form": {
+      "main": [
+        [
+          {
+            "node": "Read input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batch webhook": {
+      "main": [
+        [
+          {
+            "node": "Read input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read input": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Draft prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft prompt": {
+      "main": [
+        [
+          {
+            "node": "Write draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write draft": {
+      "main": [
+        [
+          {
+            "node": "Read draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read draft": {
+      "main": [
+        [
+          {
+            "node": "Round start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Round start": {
+      "main": [
+        [
+          {
+            "node": "Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check": {
+      "main": [
+        [
+          {
+            "node": "Read check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read check": {
+      "main": [
+        [
+          {
+            "node": "Passed or out of rounds?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Passed or out of rounds?": {
+      "main": [
+        [
+          {
+            "node": "Build post",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Repair prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Repair prompt": {
+      "main": [
+        [
+          {
+            "node": "Repair sentences",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Repair sentences": {
+      "main": [
+        [
+          {
+            "node": "Apply repairs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply repairs": {
+      "main": [
+        [
+          {
+            "node": "Round start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build post": {
+      "main": [
+        [
+          {
+            "node": "Create draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create draft": {
+      "main": [
+        [
+          {
+            "node": "Finish report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finish report": {
+      "main": [
+        [
+          {
+            "node": "Started from the form?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Started from the form?": {
+      "main": [
+        [
+          {
+            "node": "Show report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Webhook reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write draft",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Repair sentences",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
