@@ -25,6 +25,8 @@ class LevelList:
     words: frozenset[str]
     readings: frozenset[str]
     word_readings: dict[str, tuple[str, ...]]
+    word_levels: dict[str, str]  # easiest level each word or reading appears at
+    reading_levels: dict[str, str]
     kanji: frozenset[str] | None  # None when the list has no kanji.csv
 
 
@@ -80,6 +82,15 @@ def load_dir(directory: Path) -> list[LevelList]:
         allowed = set(levels[: i + 1])
         rows = [(w, r) for w, r, lv in vocab if lv in allowed]
         word_readings: dict[str, list[str]] = {}
+        word_levels: dict[str, str] = {}
+        reading_levels: dict[str, str] = {}
+        # Easiest level first, so setdefault keeps the easiest one.
+        for word, reading, lv in sorted(vocab, key=lambda row: levels.index(row[2])):
+            if lv not in allowed:
+                continue
+            word_levels.setdefault(word, lv)
+            if reading:
+                reading_levels.setdefault(reading, lv)
         for word, reading in rows:
             if reading:
                 word_readings.setdefault(word, []).append(reading)
@@ -93,6 +104,8 @@ def load_dir(directory: Path) -> list[LevelList]:
                 words=frozenset(w for w, _ in rows),
                 readings=frozenset(r for _, r in rows if r),
                 word_readings={w: tuple(rs) for w, rs in word_readings.items()},
+                word_levels=word_levels,
+                reading_levels=reading_levels,
                 kanji=None if kanji is None else frozenset(k for k, lv in kanji if lv in allowed),
             )
         )

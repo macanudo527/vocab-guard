@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class CheckOptions(BaseModel):
     allow_proper_nouns: bool = True
     allow_katakana: bool = False
+    include_words: bool = False  # also return the words that passed, per sentence
 
 
 class CheckRequest(BaseModel):
@@ -29,6 +30,18 @@ class Violation(BaseModel):
     suggestion: str | None = None
 
 
+class Word(BaseModel):
+    """A content word that passed. Offsets are in the request text."""
+
+    surface: str
+    lemma: str
+    reading: str  # reading of the surface, for furigana
+    lemma_reading: str | None = None  # reading of the dictionary form, when known
+    level: str | None = None  # None for words allowed outside the list
+    start: int
+    end: int
+
+
 class SentenceResult(BaseModel):
     index: int
     text: str
@@ -36,6 +49,7 @@ class SentenceResult(BaseModel):
     end: int
     ok: bool
     violations: list[Violation]
+    words: list[Word] | None = None  # only with options.include_words
 
 
 class CheckResponse(BaseModel):

@@ -90,3 +90,50 @@ def test_api_key_is_required_when_set(client, monkeypatch):
     # /health and /lists stay open for health checks and discovery.
     assert client.get("/health").status_code == 200
     assert client.get("/lists").status_code == 200
+
+
+def _words(client, text, list_name="sample-n5", **options):
+    body = {"text": text, "list": list_name, "options": {"include_words": True, **options}}
+    data = client.post("/check", json=body).json()
+    words = [w for s in data["sentences"] for w in s["words"]]
+    for w in words:
+        assert text[w["start"] : w["end"]] == w["surface"], w
+    return {w["surface"]: w for w in words}
+
+
+def test_words_are_left_out_by_default(client):
+    data = client.post("/check", json={"text": "水。", "list": "sample-n5"}).json()
+    assert "words" not in data["sentences"][0]
+
+
+def test_words_give_surface_and_dictionary_readings(client):
+    words = _words(client, "学校で料理を食べました。", "sample-n4")
+    assert words["食べ"] == {
+        "surface": "食べ",
+        "lemma": "食べる",
+        "reading": "たべ",
+        "lemma_reading": "たべる",
+        "level": "N5",
+        "start": 6,
+        "end": 8,
+    }
+    assert words["料理"]["level"] == "N4"
+
+
+def test_word_readings_prefer_the_list(client):
+    # Sudachi reads 明日 as あす; the list has あした.
+    assert _words(client, "明日も来ます。", "sample-n4")["明日"]["reading"] == "あした"
+
+
+def test_compound_and_joined_words_come_back_whole(client):
+    words = _words(client, "日本人の先生はすぐに来ます。")
+    assert words["日本人"]["level"] == "N5"
+    assert words["すぐに"]["lemma"] == "すぐに"
+    assert "すぐ" not in words
+
+
+def test_words_skip_violations_and_mark_allowed_words(client):
+    words = _words(client, "田中さんは毎日勉強します。")
+    assert "勉強" not in words  # kanji above N5
+    assert "level" not in words["田中"]  # proper noun, allowed outside the list
+    assert words["毎日"]["level"] == "N5"

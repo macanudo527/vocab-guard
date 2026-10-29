@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from sudachipy import Dictionary, Morpheme, SplitMode
 
 from .lists import LevelList
-from .models import CheckOptions, SentenceResult, Violation
+from .models import CheckOptions, SentenceResult, Violation, Word
 
 TERMINATORS = "。！？!?"
 CLOSING_QUOTES = "」』"
@@ -95,22 +95,26 @@ def _compound_matches(m: Morpheme, lst: LevelList) -> bool:
     return len(parts) > 1 and all(_skippable(p) or _matches(p, lst) for p in parts)
 
 
-def _span_matches(parts: list[Morpheme], lst: LevelList) -> bool:
+def _span_match(parts: list[Morpheme], lst: LevelList) -> str | None:
+    """The list word (or reading) a run of tokens forms, if any."""
     surface = "".join(m.surface() for m in parts)
-    forms = {
+    forms = [
         surface,
         "".join(m.surface() for m in parts[:-1]) + parts[-1].dictionary_form(),
         "".join(m.normalized_form() for m in parts),
-    }
-    readings = {
+    ]
+    readings = [
         to_hiragana(surface),
         to_hiragana("".join(m.reading_form() for m in parts)),
-    }
-    return bool(forms & lst.words or readings & lst.readings)
+    ]
+    return next((f for f in forms if f in lst.words), None) or next(
+        (r for r in readings if r in lst.readings), None
+    )
 
 
-def _joins(morphemes: list[Morpheme], lst: LevelList) -> set[int]:
-    """Indices of tokens that fail alone but form a list word with their neighbours."""
+def _joins(morphemes: list[Morpheme], lst: LevelList) -> list[range]:
+    """Runs of tokens where one fails alone but they form a list word together."""
+    spans: list[range] = []
     joined: set[int] = set()
     for i, m in enumerate(morphemes):
         if i in joined or _skippable(m) or _matches(m, lst) or _compound_matches(m, lst):
@@ -123,14 +127,74 @@ def _joins(morphemes: list[Morpheme], lst: LevelList) -> set[int]:
                 (
                     range(a, a + size)
                     for a in range(first, last + 1)
-                    if _span_matches(morphemes[a : a + size], lst)
+                    if _span_match(morphemes[a : a + size], lst)
                 ),
                 None,
             )
             if span:
+                spans.append(span)
                 joined.update(span)
                 break
-    return joined
+    return spans
+
+
+def _level(m: Morpheme, lst: LevelList) -> str | None:
+    """The easiest level the token matches at; the hardest part's level for compounds."""
+    for form in (m.dictionary_form(), m.normalized_form()):
+        if form in lst.word_levels:
+            return lst.word_levels[form]
+    for reading in (to_hiragana(m.reading_form()), to_hiragana(m.dictionary_form())):
+        if reading in lst.reading_levels:
+            return lst.reading_levels[reading]
+    parts = [_level(p, lst) for p in m.split(SplitMode.A) if not _skippable(p)]
+    if len(parts) > 1 and all(parts):
+        return max(parts, key=lst.levels.index)
+    return None
+
+
+def _lemma_reading(lemma: str, fallback: str | None, lst: LevelList) -> str | None:
+    listed = lst.word_readings.get(lemma)
+    if listed:
+        return listed[0]
+    if to_hiragana(lemma) in lst.reading_levels:
+        return to_hiragana(lemma)
+    return fallback
+
+
+def _word(m: Morpheme, start: int, lst: LevelList, in_list: bool) -> Word:
+    reading = _readings(m, lst)[0] if in_list else to_hiragana(m.reading_form())
+    lemma = m.dictionary_form()
+    same = m.surface() == lemma
+    return Word(
+        surface=m.surface(),
+        lemma=lemma,
+        reading=reading,
+        lemma_reading=(
+            _lemma_reading(lemma, reading if same else None, lst)
+            or _lemma_reading(m.normalized_form(), None, lst)
+            if in_list
+            else (reading if same else None)
+        ),
+        level=_level(m, lst) if in_list else None,
+        start=start + m.begin(),
+        end=start + m.end(),
+    )
+
+
+def _span_word(parts: list[tuple[int, Morpheme]], start: int, lst: LevelList) -> Word:
+    morphemes = [m for _, m in parts]
+    match = _span_match(morphemes, lst) or ""
+    reading = to_hiragana("".join(m.reading_form() for m in morphemes))
+    level = lst.word_levels.get(match) or lst.reading_levels.get(match)
+    return Word(
+        surface="".join(m.surface() for m in morphemes),
+        lemma=match,
+        reading=reading,
+        lemma_reading=_lemma_reading(match, reading, lst),
+        level=level,
+        start=start + parts[0][0] + morphemes[0].begin(),
+        end=start + parts[-1][0] + morphemes[-1].end(),
+    )
 
 
 def _readings(m: Morpheme, lst: LevelList) -> list[str]:
@@ -195,9 +259,12 @@ class Analyzer:
             sentence = text[start:end]
             tokens = self._tokenize(sentence)
             morphemes = [m for _, m in tokens]
-            joined = _joins(morphemes, lst)
+            spans = _joins(morphemes, lst)
+            joined = {i for span in spans for i in span}
             allow_spans = _find_spans(sentence, allow)
             violations = []
+            words: list[Word] = []
+            failed: set[int] = set()
             for i, (offset, m) in enumerate(tokens):
                 if _skippable(m):
                     continue
@@ -207,15 +274,19 @@ class Analyzer:
                     or any(s <= tok_begin and tok_end <= e for s, e in allow_spans)
                     or (options.allow_proper_nouns and m.part_of_speech()[1] == "固有名詞")
                 ):
+                    if i not in joined:
+                        words.append(_word(m, start + offset, lst, in_list=False))
                     continue
                 surface = m.surface()
                 in_list = i in joined or _matches(m, lst) or _compound_matches(m, lst)
                 if not in_list and options.allow_katakana and KATAKANA_ONLY.fullmatch(surface):
+                    words.append(_word(m, start + offset, lst, in_list=False))
                     continue
                 content += 1
                 readings = _readings(m, lst)
                 reading = readings[0]
                 if not in_list:
+                    failed.add(i)
                     violations.append(
                         Violation(
                             surface=surface,
@@ -225,6 +296,7 @@ class Analyzer:
                         )
                     )
                 elif above := _kanji_above(surface, lst):
+                    failed.add(i)
                     violations.append(
                         Violation(
                             surface=surface,
@@ -237,6 +309,12 @@ class Analyzer:
                     )
                 else:
                     matched += 1
+                    if i not in joined:
+                        words.append(_word(m, start + offset, lst, in_list=True))
+            for span in spans:
+                if not failed & set(span):
+                    words.append(_span_word([tokens[i] for i in span], start, lst))
+            words.sort(key=lambda w: w.start)
             sentences.append(
                 SentenceResult(
                     index=index,
@@ -245,6 +323,7 @@ class Analyzer:
                     end=end,
                     ok=not violations,
                     violations=violations,
+                    words=words if options.include_words else None,
                 )
             )
         return CheckResult(sentences=sentences, content_tokens=content, matched_tokens=matched)
