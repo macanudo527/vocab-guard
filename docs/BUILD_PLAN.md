@@ -216,9 +216,49 @@ What it does, setup in 5 steps, the credentials needed, how to run the checker (
 
 ---
 
+## Phase 4.5 — Article package and live-site drafts
+
+The articles also serve as reading practice on jlptbootcamp, to bring in search traffic. Each post becomes a full study page, and drafts can go to the live site over the WordPress REST API. Posts are still **always drafts**: a human reviews and publishes each one.
+
+### Rule: extras never change the article
+
+Everything below is made from the article **after** it passes, so the checker's guarantee for the article is unaffected.
+
+### Checker
+
+1. `/check` also returns the words that passed (surface, lemma, reading, level) for each sentence. This is additive and backward compatible; the existing golden tests still pass, and new tests cover the new field.
+
+### Article page sections
+
+| Section | How it's made |
+| --- | --- |
+| Article (Japanese) | Existing draft → check → repair loop |
+| Furigana | `<ruby>` markup from the checker's readings, with a show/hide toggle |
+| Vocabulary list | From the checker's matched words: word, reading, level, plus a short English gloss from the LLM |
+| Comprehension questions | 3–5 questions in Japanese with answers, made from the final article, then run through the **same check → repair loop** so they stay at level |
+| Vocab exercises | Fill-in-the-blank built from the article's own words with plain code, no LLM; the answer key is the original text |
+| English translation | Made last, from the final text; hidden behind a `<details>` toggle so readers try the Japanese first |
+
+The HTML must survive WordPress's content filtering for a user **without** `unfiltered_html` (no `<script>`). Toggles use `<details>`/`<summary>` or CSS. Verify this in the demo WordPress with a user of the same role the live site will use.
+
+### WordPress
+
+1. Each draft gets a level category (N5, N4, …), topic tags, an SEO title such as "JLPT N4 Reading Practice: Going to the Supermarket", and an excerpt.
+2. **Target site:** the WordPress credential decides where drafts go. The demo WordPress is used for development; the live site uses a second n8n WordPress credential. Nothing site-specific goes in `workflow.json`.
+3. **Live-site credential:** a dedicated WordPress user with the lowest role that can create drafts with categories and tags (expected: Author; confirm on the site), plus an **application password** that can be revoked on its own. The site must serve HTTPS, and the REST API must not be blocked by a security plugin. Stored only in n8n.
+4. Categories are created on the site beforehand and mapped by ID in Config, so the API user doesn't need permission to create categories.
+
+### Traffic note
+
+Google penalizes scaled, low-value AI content. Review and edit each draft before publishing, and publish gradually rather than in bulk.
+
+**Checkpoint 4.5:** a form submission produces a full article page as a draft in the demo WordPress, with every section rendering correctly for the restricted role, and the questions passing the checker; then one test draft created on the live site via the API and deleted after review.
+
+---
+
 ## Phase 5 — Benchmark and results (the portfolio evidence)
 
-1. `scripts/benchmark.py`: reads `scripts/topics.yaml` (20 everyday topics), calls the n8n webhook for each topic at N5, N4 and N3, and saves each report to `examples/<level>/<slug>.json` plus the final article as `.md`.
+1. `scripts/benchmark.py`: reads `scripts/topics.yaml` (20 everyday topics), calls the n8n webhook for each topic at N5, N4 and N3, and saves each report to `examples/<level>/<slug>.json` plus the final article as `.md`. The workflow runs with the **live-site** WordPress credential, so all 60 articles land on jlptbootcamp as drafts for review (never published by the script). Before the full run, do one N4 article end to end and wait for the user's approval.
 2. Aggregate into `docs/RESULTS.md`:
 
 | Level | Articles | First-draft pass rate | Final pass rate | Avg repair rounds | Kanji caught above level | Avg cost per article |
